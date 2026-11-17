@@ -21,7 +21,14 @@ jobs:
           gradle-version: '8.9'
 
       - name: Unzip project
-        run: unzip -o Dale_V2.zip
+        run: unzip -o Dale_V4.zip
+
+      - name: Download Chinese voice model
+        run: |
+          curl -fL --retry 3 https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip -o model.zip
+          unzip -q model.zip
+          mkdir -p Dale/app/src/main/assets
+          mv vosk-model-small-cn-0.22 Dale/app/src/main/assets/model-cn
 
       - name: Build APK
         run: |
@@ -30,5 +37,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V2-APK
+          name: Dale-V4-APK
           path: Dale/app/build/outputs/apk/debug/*.apk
