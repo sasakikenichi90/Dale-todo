@@ -22,9 +22,8 @@ jobs:
 
       - name: Unzip project
         run: |
-          test -f Dale_V7_1.zip
-          unzip -t Dale_V7_1.zip
-          unzip -o Dale_V7_1.zip
+          unzip -t Dale_V8.zip
+          unzip -o Dale_V8.zip
 
       - name: Download Chinese voice model
         run: |
@@ -55,6 +54,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V7.1-APK
+          name: Dale-V8-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
