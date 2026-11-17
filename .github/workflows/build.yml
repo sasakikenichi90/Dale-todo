@@ -21,7 +21,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Unzip project
-        run: unzip -o Dale_V4.zip
+        run: unzip -o Dale_V6.zip
 
       - name: Download Chinese voice model
         run: |
@@ -30,12 +30,20 @@ jobs:
           mkdir -p Dale/app/src/main/assets
           mv vosk-model-small-cn-0.22 Dale/app/src/main/assets/model-cn
 
-      - name: Build APK
+      - name: Build signed APK
+        env:
+          DALE_SIGNING: ${{ secrets.DALE_SIGNING }}
         run: |
+          set -e
+          test -n "$DALE_SIGNING"
+          export DALE_PASSWORD="${DALE_SIGNING%%:*}"
+          echo "::add-mask::$DALE_PASSWORD"
+          export DALE_KEYSTORE="$RUNNER_TEMP/dale.p12"
+          printf '%s' "${DALE_SIGNING#*:}" | base64 -d > "$DALE_KEYSTORE"
           cd Dale
-          gradle assembleDebug --stacktrace
+          gradle assembleRelease --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V4-APK
-          path: Dale/app/build/outputs/apk/debug/*.apk
+          name: Dale-V6-APK
+          path: Dale/app/build/outputs/apk/release/*.apk
