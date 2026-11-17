@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@v5
 
@@ -22,14 +23,15 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -t Dale_V8.zip
-          unzip -o Dale_V8.zip
+          unzip -t Dale_V8_4_RC1.zip
+          unzip -o Dale_V8_4_RC1.zip
 
       - name: Download Chinese voice model
         run: |
           curl -fL --retry 3 https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip -o model.zip
           unzip -q model.zip
           mkdir -p Dale/app/src/main/assets
+          rm -rf Dale/app/src/main/assets/model-cn
           mv vosk-model-small-cn-0.22 Dale/app/src/main/assets/model-cn
 
       - name: Build signed APK
@@ -47,6 +49,7 @@ jobs:
 
       - name: Verify APK signature
         run: |
+          set -e
           APK=$(find Dale/app/build/outputs/apk/release -name '*.apk' -print -quit)
           test -n "$APK"
           TOOL=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
@@ -54,6 +57,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V8-APK
+          name: Dale-V8.4-RC1-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
