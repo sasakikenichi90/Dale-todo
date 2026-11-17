@@ -21,7 +21,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Unzip project
-        run: unzip -o Dale_Android.zip
+        run: unzip -o Dale_V2.zip
 
       - name: Build APK
         run: |
@@ -30,5 +30,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-APK
+          name: Dale-V2-APK
           path: Dale/app/build/outputs/apk/debug/*.apk
