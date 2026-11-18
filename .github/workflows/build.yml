@@ -1,4 +1,4 @@
-name: Build Dale APK
+name: Build Dale V9.6 APK
 
 on:
   workflow_dispatch:
@@ -61,10 +61,12 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Unzip project
+      - name: Unzip V9.6 project
         run: |
-          unzip -t Dale_V9_3.zip
-          unzip -o Dale_V9_3.zip
+          set -e
+          unzip -t Dale_V9_6.zip
+          unzip -o Dale_V9_6.zip
+          test -f Dale/app/build.gradle
 
       - name: Install native build tools
         shell: bash
@@ -107,6 +109,7 @@ jobs:
           unzip -q model.zip
 
           mkdir -p Dale/app/src/main/assets
+
           rm -rf Dale/app/src/main/assets/model-cn
 
           mv vosk-model-small-cn-0.22 \
@@ -121,6 +124,7 @@ jobs:
           test -n "$DALE_SIGNING"
 
           export DALE_PASSWORD="${DALE_SIGNING%%:*}"
+
           echo "::add-mask::$DALE_PASSWORD"
 
           export DALE_KEYSTORE="$RUNNER_TEMP/dale.p12"
@@ -131,6 +135,7 @@ jobs:
           chmod 600 "$DALE_KEYSTORE"
 
           cd Dale
+
           gradle assembleRelease --stacktrace
 
       - name: Verify APK signature
@@ -145,8 +150,9 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify --verbose --print-certs "$APK"
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Dale V9.6 APK
+        uses: actions/upload-artifact@v4
         with:
-          name: Dale-V9.3-APK
+          name: Dale-V9.6-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
