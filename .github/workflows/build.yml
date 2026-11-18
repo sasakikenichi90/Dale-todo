@@ -1,4 +1,4 @@
-name: Build Dale V10.0.3 APK
+name: Build Dale V10.1.0 APK
 on:
   workflow_dispatch:
   push:
@@ -18,20 +18,42 @@ jobs:
           gradle-version: '8.9'
       - name: Unpack and test
         run: |
-          unzip -t Dale_V10_0_3.zip
-          unzip -o Dale_V10_0_3.zip
+          unzip -t Dale_V10_1_0.zip
+          unzip -o Dale_V10_1_0.zip
           cd Dale
           mkdir -p test-classes
           SRC=app/src/main/java/com/dale/todo
-          javac -d test-classes "$SRC"/{TaskTitle,ExplicitPlan,AiJsonEnvelope,CategoryLogic,CommandIntent,AssistantLearning,DailyReview}.java tests/*.java
+          javac -d test-classes "$SRC"/{Schedule,TaskTitle,ExplicitPlan,AiJsonEnvelope,CategoryLogic,CommandIntent,AssistantLearning,DailyReview}.java tests/*.java
           for f in tests/*Test.java; do java -cp test-classes "com.dale.todo.$(basename "$f" .java)" || exit 1; done
-      - name: Install Android tools
+      - name: Install independent Android SDK
+        shell: bash
         run: |
+          set -euo pipefail
+          SDK_ROOT="$RUNNER_TEMP/dale-android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools/latest" "$RUNNER_TEMP/android-tools"
+          curl -fL --retry 5 https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o "$RUNNER_TEMP/android-tools/tools.zip"
+          unzip -tq "$RUNNER_TEMP/android-tools/tools.zip"
+          unzip -qo "$RUNNER_TEMP/android-tools/tools.zip" -d "$RUNNER_TEMP/android-tools"
+          cp -a "$RUNNER_TEMP/android-tools/cmdline-tools/." "$SDK_ROOT/cmdline-tools/latest/"
+          export ANDROID_HOME="$SDK_ROOT" ANDROID_SDK_ROOT="$SDK_ROOT"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          chmod +x "$SDKMANAGER"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          "$SDKMANAGER" --version
           set +o pipefail
-          yes | sdkmanager --licenses
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
           set -o pipefail
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
-          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > Dale/local.properties
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" --sdk_root="$SDK_ROOT" 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'; then break; fi
+            test "$attempt" -lt 3 || exit 1
+            sleep 10
+          done
+          test -f "$SDK_ROOT/platforms/android-35/android.jar"
+          test -f "$SDK_ROOT/ndk/27.2.12479018/source.properties"
+          test -x "$SDK_ROOT/cmake/3.22.1/bin/cmake"
+          test -x "$SDK_ROOT/build-tools/35.0.0/apksigner"
+          printf 'sdk.dir=%s\n' "$SDK_ROOT" > Dale/local.properties
       - name: Voice model
         run: |
           curl -fL --retry 5 https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip -o model.zip
@@ -59,6 +81,6 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V10.0.3-APK
+          name: Dale-V10.1.0-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
