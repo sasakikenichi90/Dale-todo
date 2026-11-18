@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
     steps:
       - uses: actions/checkout@v5
 
@@ -16,8 +18,48 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK directly
+        shell: bash
+        run: |
+          set -e
+
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          mkdir -p "$SDK_ROOT"
+
+          SDKMANAGER=$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -1 || true)
+
+          if [ -z "$SDKMANAGER" ]; then
+            curl -fL --retry 5 --retry-delay 5 \
+              https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+              -o "$RUNNER_TEMP/android-tools.zip"
+
+            mkdir -p "$RUNNER_TEMP/android-tools"
+            unzip -qo "$RUNNER_TEMP/android-tools.zip" \
+              -d "$RUNNER_TEMP/android-tools"
+
+            mkdir -p "$SDK_ROOT/cmdline-tools/latest"
+
+            cp -a "$RUNNER_TEMP/android-tools/cmdline-tools/." \
+              "$SDK_ROOT/cmdline-tools/latest/"
+
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          fi
+
+          chmod +x "$SDKMANAGER"
+
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          dirname "$SDKMANAGER" >> "$GITHUB_PATH"
+
+          "$SDKMANAGER" --version
+
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
+          set -o pipefail
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -29,46 +71,83 @@ jobs:
           unzip -o Dale_V8_9_RC2_fixed.zip
 
       - name: Install native build tools
+        shell: bash
         run: |
           set -e
-          command -v sdkmanager
-          sdkmanager --version
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
 
-          test -d "$ANDROID_HOME/ndk/27.2.12479018"
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
+              "platform-tools" \
+              "platforms;android-35" \
+              "build-tools;35.0.0" \
+              "ndk;27.2.12479018" \
+              "cmake;3.22.1"; then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          test -f "$ANDROID_HOME/ndk/27.2.12479018/source.properties"
           test -x "$ANDROID_HOME/cmake/3.22.1/bin/cmake"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
-          echo "Android native build tools ready"
+          echo "Android build environment ready"
 
       - name: Download Chinese voice model
         run: |
           set -e
-          curl -fL --retry 3 https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip -o model.zip
+
+          curl -fL --retry 5 --retry-delay 5 \
+            https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip \
+            -o model.zip
+
+          unzip -tq model.zip
           unzip -q model.zip
+
           mkdir -p Dale/app/src/main/assets
           rm -rf Dale/app/src/main/assets/model-cn
-          mv vosk-model-small-cn-0.22 Dale/app/src/main/assets/model-cn
+
+          mv vosk-model-small-cn-0.22 \
+            Dale/app/src/main/assets/model-cn
 
       - name: Build signed APK
         env:
           DALE_SIGNING: ${{ secrets.DALE_SIGNING }}
         run: |
           set -e
+
           test -n "$DALE_SIGNING"
+
           export DALE_PASSWORD="${DALE_SIGNING%%:*}"
           echo "::add-mask::$DALE_PASSWORD"
+
           export DALE_KEYSTORE="$RUNNER_TEMP/dale.p12"
-          printf '%s' "${DALE_SIGNING#*:}" | base64 -d > "$DALE_KEYSTORE"
+
+          printf '%s' "${DALE_SIGNING#*:}" \
+            | base64 -d > "$DALE_KEYSTORE"
+
+          chmod 600 "$DALE_KEYSTORE"
+
           cd Dale
           gradle assembleRelease --stacktrace
 
       - name: Verify APK signature
         run: |
           set -e
-          APK=$(find Dale/app/build/outputs/apk/release -name '*.apk' -print -quit)
+
+          APK=$(find Dale/app/build/outputs/apk/release \
+            -name '*.apk' -print -quit)
+
           test -n "$APK"
-          TOOL=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$TOOL" verify --verbose --print-certs "$APK"
+
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            verify --verbose --print-certs "$APK"
 
       - uses: actions/upload-artifact@v4
         with:
