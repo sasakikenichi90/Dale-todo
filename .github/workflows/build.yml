@@ -22,6 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           SDK_ROOT="$RUNNER_TEMP/dale-android-sdk"
           TEMP_DIR="$RUNNER_TEMP/android-tools"
 
@@ -62,8 +63,8 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -t Dale_V9_0.zip
-          unzip -o Dale_V9_0.zip
+          unzip -t Dale_V9_2.zip
+          unzip -o Dale_V9_2.zip
 
       - name: Install native build tools
         shell: bash
@@ -146,6 +147,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V9.0-APK
+          name: Dale-V9.2-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
