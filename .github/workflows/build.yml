@@ -63,8 +63,8 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -t Dale_V9_2.zip
-          unzip -o Dale_V9_2.zip
+          unzip -t Dale_V9_3.zip
+          unzip -o Dale_V9_3.zip
 
       - name: Install native build tools
         shell: bash
@@ -147,6 +147,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V9.2-APK
+          name: Dale-V9.3-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
