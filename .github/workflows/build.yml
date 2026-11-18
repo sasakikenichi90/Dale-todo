@@ -20,8 +20,8 @@ jobs:
           gradle-version: '8.9'
       - name: Unpack and test
         run: |
-          unzip -t Dale_V10_1_7.zip
-          unzip -o Dale_V10_1_7.zip
+          unzip -t Dale_V10_1_7_fixed.zip
+          unzip -o Dale_V10_1_7_fixed.zip
           cd Dale
           mkdir -p test-classes
           SRC=app/src/main/java/com/dale/todo
