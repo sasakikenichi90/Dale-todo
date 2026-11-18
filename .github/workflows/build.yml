@@ -16,6 +16,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -27,10 +30,19 @@ jobs:
 
       - name: Install native build tools
         run: |
-          sdkmanager "ndk;27.2.12479018" "cmake;3.22.1"
+          set -e
+          command -v sdkmanager
+          sdkmanager --version
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+
+          test -d "$ANDROID_HOME/ndk/27.2.12479018"
+          test -x "$ANDROID_HOME/cmake/3.22.1/bin/cmake"
+
+          echo "Android native build tools ready"
 
       - name: Download Chinese voice model
         run: |
+          set -e
           curl -fL --retry 3 https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip -o model.zip
           unzip -q model.zip
           mkdir -p Dale/app/src/main/assets
