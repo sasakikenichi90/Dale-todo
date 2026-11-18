@@ -63,8 +63,8 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -t Dale_V8_9_RC5.zip
-          unzip -o Dale_V8_9_RC5.zip
+          unzip -t Dale_V8_9_RC6.zip
+          unzip -o Dale_V8_9_RC6.zip
 
       - name: Install native build tools
         shell: bash
@@ -94,8 +94,6 @@ jobs:
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > Dale/local.properties
-
-          echo "Android build environment ready"
 
       - name: Download Chinese voice model
         run: |
@@ -149,6 +147,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V8.9-RC5-AI-APK
+          name: Dale-V8.9-RC6-AI-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
