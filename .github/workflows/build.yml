@@ -63,8 +63,8 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -t Dale_V8_9_RC2_fixed.zip
-          unzip -o Dale_V8_9_RC2_fixed.zip
+          unzip -t Dale_V8_9_RC3.zip
+          unzip -o Dale_V8_9_RC3.zip
 
       - name: Install native build tools
         shell: bash
@@ -92,8 +92,6 @@ jobs:
           test -f "$ANDROID_HOME/ndk/27.2.12479018/source.properties"
           test -x "$ANDROID_HOME/cmake/3.22.1/bin/cmake"
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
-
-          echo "Android build environment ready"
 
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > Dale/local.properties
 
@@ -149,6 +147,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V8.9-RC2-AI-APK
+          name: Dale-V8.9-RC3-AI-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
