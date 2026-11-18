@@ -1,179 +1,64 @@
-name: Build Dale V9.12 APK
-
+name: Build Dale V10.0.3 APK
 on:
   workflow_dispatch:
   push:
     branches: [main]
-
 jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Setup independent Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          SDK_ROOT="$RUNNER_TEMP/dale-android-sdk"
-          TEMP_DIR="$RUNNER_TEMP/android-tools"
-
-          mkdir -p "$SDK_ROOT/cmdline-tools/latest"
-          mkdir -p "$TEMP_DIR"
-
-          curl -fL --retry 5 --retry-delay 5 \
-            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-            -o "$TEMP_DIR/tools.zip"
-
-          unzip -tq "$TEMP_DIR/tools.zip"
-          unzip -qo "$TEMP_DIR/tools.zip" -d "$TEMP_DIR"
-
-          cp -a "$TEMP_DIR/cmdline-tools/." \
-            "$SDK_ROOT/cmdline-tools/latest/"
-
-          export ANDROID_HOME="$SDK_ROOT"
-          export ANDROID_SDK_ROOT="$SDK_ROOT"
-
-          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-
-          chmod +x "$SDKMANAGER"
-
-          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
-          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-
-          "$SDKMANAGER" --version
-
-          set +o pipefail
-          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
-          set -o pipefail
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Unzip V9.12 project
+      - name: Unpack and test
         run: |
-          set -e
-          unzip -t Dale_V9_12.zip
-          unzip -o Dale_V9_12.zip
-          test -f Dale/app/build.gradle
-
-      - name: Run AI regression tests
-        shell: bash
-        run: |
-          set -e
+          unzip -t Dale_V10_0_3.zip
+          unzip -o Dale_V10_0_3.zip
           cd Dale
           mkdir -p test-classes
-
           SRC=app/src/main/java/com/dale/todo
-
-          javac -d test-classes \
-            "$SRC/ExplicitPlan.java" \
-            "$SRC/AiJsonEnvelope.java" \
-            "$SRC/CategoryLogic.java" \
-            "$SRC/CommandIntent.java" \
-            "$SRC/AssistantLearning.java" \
-            tests/*.java
-
-          for TEST in ExplicitPlanTest AiJsonEnvelopeTest CategoryLogicTest CommandIntentTest AssistantLearningTest; do
-            java -cp test-classes "com.dale.todo.$TEST"
-          done
-
-      - name: Install native build tools
-        shell: bash
+          javac -d test-classes "$SRC"/{TaskTitle,ExplicitPlan,AiJsonEnvelope,CategoryLogic,CommandIntent,AssistantLearning,DailyReview}.java tests/*.java
+          for f in tests/*Test.java; do java -cp test-classes "com.dale.todo.$(basename "$f" .java)" || exit 1; done
+      - name: Install Android tools
         run: |
-          set -euo pipefail
-
-          for attempt in 1 2 3; do
-            if "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
-              "platform-tools" \
-              "platforms;android-35" \
-              "build-tools;35.0.0" \
-              "ndk;27.2.12479018" \
-              "cmake;3.22.1"; then
-              break
-            fi
-
-            if [ "$attempt" -eq 3 ]; then
-              exit 1
-            fi
-
-            sleep 10
-          done
-
-          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
-          test -f "$ANDROID_HOME/ndk/27.2.12479018/source.properties"
-          test -x "$ANDROID_HOME/cmake/3.22.1/bin/cmake"
-          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
-
+          set +o pipefail
+          yes | sdkmanager --licenses
+          set -o pipefail
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > Dale/local.properties
-
-      - name: Download Chinese voice model
+      - name: Voice model
         run: |
-          set -e
-
-          curl -fL --retry 5 --retry-delay 5 \
-            https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip \
-            -o model.zip
-
+          curl -fL --retry 5 https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip -o model.zip
           unzip -tq model.zip
           unzip -q model.zip
-
           mkdir -p Dale/app/src/main/assets
-
           rm -rf Dale/app/src/main/assets/model-cn
-
-          mv vosk-model-small-cn-0.22 \
-            Dale/app/src/main/assets/model-cn
-
+          mv vosk-model-small-cn-0.22 Dale/app/src/main/assets/model-cn
       - name: Build signed APK
         env:
           DALE_SIGNING: ${{ secrets.DALE_SIGNING }}
         run: |
-          set -e
-
           test -n "$DALE_SIGNING"
-
           export DALE_PASSWORD="${DALE_SIGNING%%:*}"
-
           echo "::add-mask::$DALE_PASSWORD"
-
           export DALE_KEYSTORE="$RUNNER_TEMP/dale.p12"
-
-          printf '%s' "${DALE_SIGNING#*:}" \
-            | base64 -d > "$DALE_KEYSTORE"
-
+          printf '%s' "${DALE_SIGNING#*:}" | base64 -d > "$DALE_KEYSTORE"
           chmod 600 "$DALE_KEYSTORE"
-
           cd Dale
-
           gradle assembleRelease --stacktrace
-
-      - name: Verify APK signature
+      - name: Verify signature
         run: |
-          set -e
-
-          APK=$(find Dale/app/build/outputs/apk/release \
-            -name '*.apk' -print -quit)
-
+          APK=$(find Dale/app/build/outputs/apk/release -name '*.apk' -print -quit)
           test -n "$APK"
-
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify --verbose --print-certs "$APK"
-
-      - name: Upload Dale V9.12 APK
-        uses: actions/upload-artifact@v4
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+      - uses: actions/upload-artifact@v4
         with:
-          name: Dale-V9.12-APK
+          name: Dale-V10.0.3-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
