@@ -1,4 +1,4 @@
-name: Build Dale V9.7 APK
+name: Build Dale V9.10 APK
 
 on:
   workflow_dispatch:
@@ -61,12 +61,32 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Unzip V9.7 project
+      - name: Unzip V9.10 project
         run: |
           set -e
-          unzip -t Dale_V9_7.zip
-          unzip -o Dale_V9_7.zip
+          unzip -t Dale_V9_10.zip
+          unzip -o Dale_V9_10.zip
           test -f Dale/app/build.gradle
+
+      - name: Run Java regression tests
+        shell: bash
+        run: |
+          set -e
+          cd Dale
+          mkdir -p test-classes
+
+          SRC=app/src/main/java/com/dale/todo
+
+          javac -d test-classes \
+            "$SRC/ExplicitPlan.java" \
+            "$SRC/AiJsonEnvelope.java" \
+            "$SRC/CategoryLogic.java" \
+            "$SRC/CommandIntent.java" \
+            tests/*.java
+
+          for TEST in ExplicitPlanTest AiJsonEnvelopeTest CategoryLogicTest CommandIntentTest; do
+            java -cp test-classes "com.dale.todo.$TEST"
+          done
 
       - name: Install native build tools
         shell: bash
@@ -150,9 +170,9 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify --verbose --print-certs "$APK"
 
-      - name: Upload Dale V9.7 APK
+      - name: Upload Dale V9.10 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dale-V9.7-APK
+          name: Dale-V9.10-APK
           path: Dale/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
