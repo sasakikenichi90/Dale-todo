@@ -1,4 +1,4 @@
-name: Build Dale V10.1.10 APK
+name: Build Dale V10.1.11 APK
 on:
   workflow_dispatch:
   push:
@@ -20,8 +20,8 @@ jobs:
           gradle-version: '8.9'
       - name: Unpack and test
         run: |
-          unzip -t Dale_V10_1_10.zip
-          unzip -o Dale_V10_1_10.zip
+          unzip -t Dale_V10_1_11.zip
+          unzip -o Dale_V10_1_11.zip
           cd Dale
           mkdir -p test-classes
           SRC=app/src/main/java/com/dale/todo
@@ -84,8 +84,8 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           VERSION=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" Dale/app/build.gradle)
           CODE=$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' Dale/app/build.gradle)
-          test "$VERSION" = '10.1.10'
-          test "$CODE" = '67'
+          test "$VERSION" = '10.1.11'
+          test "$CODE" = '68'
           BADGING=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")
           grep -F "versionName='$VERSION'" <<< "$BADGING"
           grep -F "versionCode='$CODE'" <<< "$BADGING"
